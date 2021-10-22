@@ -19,10 +19,26 @@
 class Director{
 
 private:
-
-
+    int timeStep;
+    webots::Supervisor robot;
+    webots::Keyboard *keyboard;
+    webots::Emitter *emitter;
+    bool inRc;
 
 public:
+
+    // Director constructor
+    Director(webots::Supervisor &supervisor) : timeStep{128}, robot{supervisor},
+        keyboard{robot.getKeyboard()}, emitter{robot.getEmitter("emitter")}, 
+        inRc{false} {
+        keyboard->enable(timeStep);
+    }
+
+    void toggleInRc(bool toggle) {
+        inRc = toggle;
+    }
+
+    // print the main menu
     void printMainMenu() {
         std::string menu1{" Director: This is a simulation for MTRN2500 Cafe.\n"
                         " Director: press[I] to reprint the commands.\n"
@@ -31,21 +47,21 @@ public:
                         " Director: press[Q] to quit all controller.\n"};
         std::cout << menu1;
     }
+
+    // print the menu for romote control selection, i.e. when 'R' was pressed
     void printRcMenu() {
-        std::string menu2{" Director: Press [1] to control the Purple Robot (Customer1).\n"
-                         " Director: Press [2] to control the White Robot (Customer2).\n"
-                         " Director: Press [3] to control the Gold Robot (Customer3).\n"
-                         " Director: Press [4] to control the Green Robot (Customer4)\n"
-                         " Director: Press [5] to control the Black Robot (Staff).\n"};
+        std::string menu2{" Director: Please select the robot to control remotely:\n"
+                          " Director: Press [1] to control the Purple Robot (Customer1).\n"
+                          " Director: Press [2] to control the White Robot (Customer2).\n"
+                          " Director: Press [3] to control the Gold Robot (Customer3).\n"
+                          " Director: Press [4] to control the Green Robot (Customer4)\n"
+                          " Director: Press [5] to control the Black Robot (Staff).\n"};
         std::cout << menu2;
     }
-    void startRc(webots::Supervisor &robot, int timeStep) {
-        auto keyboard = static_cast<webots::Keyboard *>(robot.getKeyboard());
-        keyboard->enable(timeStep);
-        auto emitter = static_cast<webots::Emitter *>(robot.getEmitter("emitter"));
+    void startRc() {
         std::string message = "";
         while (robot.step(timeStep) != -1) {
-            auto key = static_cast<int>(keyboard->getKey());
+            int key = keyboard->getKey();
             if (key == '1') {
                 message = "Customer1";
                 emitter->setChannel(1);
@@ -61,9 +77,13 @@ public:
             } else if (key == '5') {
                 message = "Staff";
                 emitter->setChannel(5);
-            } else {
-                //return;
-            } if (message.length() > 0) {
+            } else if (key != -1){
+                std::cout << "Command not found.\n";
+                toggleInRc(false);
+                printMainMenu();
+                return;
+            } 
+            if (message.length() > 0) {
                 if (emitter->send(message.c_str(), message.size() + 1)) {
                     return;
                 }
@@ -71,35 +91,22 @@ public:
         }
     }
     void simulate() {
-        auto robot = webots::Supervisor();
-        auto const timeStep = 128;
-        auto keyboard = static_cast<webots::Keyboard *>(robot.getKeyboard());
-        keyboard->enable(timeStep);
         printMainMenu();
         while (robot.step(timeStep) != -1) {
-            auto key = static_cast<int>(keyboard->getKey());
-            switch (key) {
-                case 'I': {
-                    printMainMenu();
-                    break;
-                }
-                case 'R':{
-                    printRcMenu();
-                    keyboard->disable();
-                    startRc(robot, timeStep);
-                    break;
-                }
-                case 'A':{
-                    break;
-                }
-                case 'Q':{
-                    break;
-                }
-                default:{
-                    // std::cout << "Command not found.\n";
-                    // printMainMenu();
-                    // break;
-                }
+            int key = keyboard->getKey();
+            if (key == 'I') {
+                printMainMenu();
+            } else if (key == 'R') {
+                printRcMenu();
+                toggleInRc(true);
+                startRc();
+            } else if (key == 'A') {
+
+            } else if (key == 'Q') {
+                return;
+            } else if (key != -1 && !inRc){
+                std::cout << "Command not found.\n";
+                printMainMenu();
             }
         }
     }
@@ -107,7 +114,8 @@ public:
 
 int main(int argc, char **argv) {
 
-    Director director{};
+    auto robot = webots::Supervisor();
+    Director director(robot);
     director.simulate();
 
     return 0;
