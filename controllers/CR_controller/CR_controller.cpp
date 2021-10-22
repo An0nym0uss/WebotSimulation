@@ -8,6 +8,7 @@
 // <webots/DistanceSensor.hpp>, <webots/Motor.hpp>, etc.
 // and/or to add some other includes
 #include <iostream>
+#include <array>
 
 #include <webots/Receiver.hpp>
 #include <webots/Keyboard.hpp>
@@ -20,8 +21,24 @@ auto constexpr MAX_MOTOR_SPEED = 6.28;
 class Customer {
 
 private:
+    std::array<double, 2> speed {};
 
 public:
+
+    Customer() {
+        speed[0] = 0.0;
+        speed[1] = 0.0;
+    }
+
+    void setSpeed(double leftSpeed, double rightSpeed) {
+        speed[0] = leftSpeed;
+        speed[1] = rightSpeed;
+    }
+    std::array<double, 2> getSpeed() {
+
+        return speed;
+    }
+
     void teleoperation(webots::Robot &robot) {
 
         auto leftMotor = static_cast<webots::Motor *>(robot.getMotor("left wheel motor"));
@@ -36,24 +53,23 @@ public:
 
         while (robot.step(timeStep) != -1) {
             auto key = static_cast<int>(keyboard->getKey());
-            auto leftSpeed = 0.0;
-            auto rightSpeed = 0.0;
-
             if (key == 'W') {
-                leftSpeed = 0.5 * MAX_MOTOR_SPEED;
-                rightSpeed = 0.5 * MAX_MOTOR_SPEED;
-            }
-            else if (key == 'D') {
-                leftSpeed = 0.5 * MAX_MOTOR_SPEED;
-                rightSpeed = -0.5 * MAX_MOTOR_SPEED;
-            }
-            else if (key == 'A') {
-                leftSpeed = -0.5 * MAX_MOTOR_SPEED;
-                rightSpeed = 0.5 * MAX_MOTOR_SPEED;
+                setSpeed(0.5 * MAX_MOTOR_SPEED, 0.5 * MAX_MOTOR_SPEED);
+            } else if (key == 'D') {
+                setSpeed(0.5 * MAX_MOTOR_SPEED, -0.5 * MAX_MOTOR_SPEED);
+            } else if (key == 'A') {
+                setSpeed(-0.5 * MAX_MOTOR_SPEED, 0.5 * MAX_MOTOR_SPEED);
+            } else if (key == ' ') {
+                setSpeed(0.0, 0.0);
+            } else if (key == 65579) {
+                std::array<double, 2> currentSpeed = getSpeed();
+                std::array<double, 2> newSpeed {currentSpeed.at(0) + (0.1 * MAX_MOTOR_SPEED), currentSpeed.at(1) + (0.1 * MAX_MOTOR_SPEED)};
+                setSpeed(newSpeed.at(0), newSpeed.at(1));
             }
 
-            leftMotor->setVelocity(leftSpeed);
-            rightMotor->setVelocity(rightSpeed);
+            std::array<double, 2> motorSpeed = getSpeed();
+            leftMotor->setVelocity(motorSpeed.at(0));
+            rightMotor->setVelocity(motorSpeed.at(1));
         }
     }
     void remoteControls() {
