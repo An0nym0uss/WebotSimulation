@@ -9,12 +9,17 @@
 // and/or to add some other includes
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <vector>
+#include <iomanip>
+#include <queue>
 
 #include <webots/Robot.hpp>
 #include <webots/Keyboard.hpp>
 #include <webots/Node.hpp>
 #include <webots/Supervisor.hpp>
 #include <webots/Emitter.hpp>
+#include <webots/Receiver.hpp>
 
 class Director{
 
@@ -23,19 +28,35 @@ private:
     webots::Supervisor robot;
     webots::Keyboard *keyboard;
     webots::Emitter *emitter;
+    webots::Receiver *receiver;
+    webots::Field *translationField;
     bool inRc;
+    double mTime;
+    std::queue<int> robots{};
+    std::queue<std::string> orders{};
+    
 
 public:
 
     // Director constructor
     Director(webots::Supervisor &supervisor) : timeStep{128}, robot{supervisor},
         keyboard{robot.getKeyboard()}, emitter{robot.getEmitter("emitter")}, 
-        inRc{false} {
+        receiver{robot.getReceiver("receiver")}, inRc{false}, mTime{0.0} {
         keyboard->enable(timeStep);
+        receiver->enable(timeStep);
+        readOrder();
     }
 
     void toggleInRc(bool toggle) {
         inRc = toggle;
+    }
+
+    void setStartTime(double time) {
+        mTime = time;
+    }
+
+    double getStartTime() {
+        return mTime;
     }
 
     // print the main menu
@@ -58,24 +79,25 @@ public:
                           " Director: Press [5] to control the Black Robot (Staff).\n"};
         std::cout << menu2;
     }
-    void startRc() {
+
+    void modeRc() {
         std::string message = "";
         while (robot.step(timeStep) != -1) {
             int key = keyboard->getKey();
             if (key == '1') {
-                message = "Customer1";
+                message = "Remote Control";
                 emitter->setChannel(1);
             } else if (key == '2') {
-                message = "Customer2";
+                message = "Remote Control";
                 emitter->setChannel(2);
             } else if (key == '3') {
-                message = "Customer3";
+                message = "Remote Control";
                 emitter->setChannel(3);
             } else if (key == '4') {
-                message = "Customer4";
+                message = "Remote Control";
                 emitter->setChannel(4);
             } else if (key == '5') {
-                message = "Staff";
+                message = "Remote Control";
                 emitter->setChannel(5);
             } else if (key != -1){
                 std::cout << "Command not found.\n";
@@ -90,18 +112,71 @@ public:
             }
         }
     }
+
+    void readOrder() {
+
+        std::string filename{"../Order.csv"};
+        std::ifstream data{filename};
+        if (!data) {
+            std::cerr << "error: open file for input failed!\n";
+            return;
+        }
+        std::string line;
+        std::getline(data, line);
+        std::vector<std::vector<std::string>> table;
+        while (std::getline(data, line)) {
+            std::stringstream lineStream(line);
+            std::string cell;
+            std::vector<std::string> row;
+            while (std::getline(lineStream, cell, ',')) {
+                row.push_back(cell);
+            }
+            table.push_back(row);
+        }
+        setStartTime(robot.getTime());
+
+        for (int i = 0; i < static_cast<int>(table.size()); i++) {
+            robots.push(std::stoi(table[i][0]));
+            orders.push(table[i][1]);
+        }
+    }
+
+    void modeAuto() {
+        std::string message = orders.front() + "-StartAuto";
+        emitter->setChannel(robots.front());
+        emitter->send(message.c_str(), message.size() + 1);
+        emitter->setChannel(5);
+        emitter->send(message.c_str(), message.size() + 1);
+        orders.pop();
+        robots.pop();
+        emitter->setChannel(-1);
+    }
+
     void simulate() {
         printMainMenu();
+        auto actor = static_cast<webots::Node *>(robot.getFromDef("CUSTOMER1"));
+        translationField = actor->getField("translation");
         while (robot.step(timeStep) != -1) {
+
+            if (receiver->getQueueLength() > 0) {
+                auto message = static_cast<std::string>((static_cast<const char *>(receiver->getData())));
+                receiver->nextPacket();
+                if (message == "Next") {
+                    modeAuto();
+                } else if (message == "Done") {
+                    std::cout << "Director: The whole auto mode takes up " robot.getTime() - mTime << "s\n ";
+                }
+            }
+
             int key = keyboard->getKey();
             if (key == 'I') {
                 printMainMenu();
             } else if (key == 'R') {
                 printRcMenu();
                 toggleInRc(true);
-                startRc();
-            } else if (key == 'A') {
-
+                modeRc();
+            } else if (key == 'A' && !inRc) {
+                modeAuto();
             } else if (key == 'Q') {
                 return;
             } else if (key != -1 && !inRc){
