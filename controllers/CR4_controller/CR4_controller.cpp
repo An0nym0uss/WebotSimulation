@@ -1,4 +1,4 @@
-// File:          CR1_controller.cpp
+// File:          CR4_controller.cpp
 // Author: Austin Chen
 
 #include <iostream>
