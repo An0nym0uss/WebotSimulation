@@ -51,6 +51,7 @@ public:
         inRc = toggle;
     }
 
+    // getter and setter for start time
     void setStartTime(double time) {
         mTime = time;
     }
@@ -71,12 +72,13 @@ public:
 
     // print the menu for romote control selection, i.e. when 'R' was pressed
     void printRcMenu() {
-        std::string menu2{" Director: Please select the robot to control remotely:\n"
-                          " Director: Press [1] to control the Purple Robot (Customer1).\n"
-                          " Director: Press [2] to control the White Robot (Customer2).\n"
-                          " Director: Press [3] to control the Gold Robot (Customer3).\n"
-                          " Director: Press [4] to control the Green Robot (Customer4)\n"
-                          " Director: Press [5] to control the Black Robot (Staff).\n"};
+        std::string menu2{
+            " Director: Please select the robot to control remotely:\n"
+            " Director: Press [1] to control the Purple Robot (Customer1).\n"
+            " Director: Press [2] to control the White Robot (Customer2).\n"
+            " Director: Press [3] to control the Gold Robot (Customer3).\n"
+            " Director: Press [4] to control the Green Robot (Customer4)\n"
+            " Director: Press [5] to control the Black Robot (Staff).\n"};
         std::cout << menu2;
     }
 
@@ -113,6 +115,7 @@ public:
         }
     }
 
+    // read in the data from Order.csv
     void readOrder() {
 
         std::string filename{"../Order.csv"};
@@ -141,6 +144,7 @@ public:
         }
     }
 
+    // start auto mode
     void modeAuto() {
         std::string message = orders.front() + "-StartAuto";
         emitter->setChannel(robots.front());
@@ -152,6 +156,7 @@ public:
         emitter->setChannel(-1);
     }
 
+    // start simulation
     void simulate() {
         printMainMenu();
         auto actor = static_cast<webots::Node *>(robot.getFromDef("CUSTOMER1"));
@@ -159,12 +164,19 @@ public:
         while (robot.step(timeStep) != -1) {
 
             if (receiver->getQueueLength() > 0) {
-                auto message = static_cast<std::string>((static_cast<const char *>(receiver->getData())));
+                auto message = static_cast<std::string>(
+                    (static_cast<const char *>(receiver->getData())));
                 receiver->nextPacket();
                 if (message == "Next") {
                     modeAuto();
                 } else if (message == "Done") {
-                    std::cout << "Director: The whole auto mode takes up " robot.getTime() - mTime << "s\n ";
+                    std::cout << "Director: The whole auto mode takes up " << 
+                    robot.getTime() - mTime << "s\n ";
+                    std::string message = "FinishingStatement";
+                    for (int i = 1; i < 6; i++) {
+                        emitter->send(message.c_str(), message.size() + 1);
+                        emitter->setChannel(i);
+                    }
                 }
             }
 
