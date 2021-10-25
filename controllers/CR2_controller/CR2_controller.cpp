@@ -1,3 +1,6 @@
+// File:          CR1_controller.cpp
+// Author: Austin Chen
+
 #include <iostream>
 #include <array>
 #include <string>
@@ -10,7 +13,6 @@
 #include <webots/Motor.hpp>
 #include <webots/Robot.hpp>
 
-auto constexpr WHEEL_RADIUS = 0.0205; 
 auto constexpr MAX_MOTOR_SPEED = 6.28;
 
 class Customer {
@@ -36,13 +38,15 @@ private:
     bool toStartError;
 
 public:
-
-    Customer(webots::Robot &aRobot) : robot{aRobot}, timeStep{robot.getBasicTimeStep()},
-    keyboard{robot.getKeyboard()}, emitter{robot.getEmitter("emitter")}, 
-    receiver{robot.getReceiver("receiver")},leftMotor{robot.getMotor("left wheel motor")}, 
-    rightMotor{robot.getMotor("right wheel motor")}, timing{false}, startTime{0}, 
-    toOrder{true}, toStartFromOrder{false}, toPickup{false}, toStartfromPickup{false}, 
-    toStartError{false}{
+    Customer(webots::Robot &aRobot) : robot{aRobot}, 
+    timeStep{robot.getBasicTimeStep()}, keyboard{robot.getKeyboard()}, 
+    emitter{robot.getEmitter("emitter")}, 
+    receiver{robot.getReceiver("receiver")},
+    leftMotor{robot.getMotor("left wheel motor")}, 
+    rightMotor{robot.getMotor("right wheel motor")}, 
+    timing{false}, startTime{0}, toOrder{true}, toStartFromOrder{false}, 
+    toPickup{false}, toStartfromPickup{false}, toStartError{false}
+    {
         speed[0] = 0.0;
         speed[1] = 0.0;
         keyboard->enable(timeStep);
@@ -50,14 +54,17 @@ public:
         readStarting();
     }
 
+    // getters and setter for speed
     void setSpeed(double leftSpeed, double rightSpeed) {
         speed[0] = leftSpeed;
         speed[1] = rightSpeed;
     }
+
     std::array<double, 2> getSpeed() {
         return speed;
     }
 
+    // Read in the Starting.csv file to find the starting cash of the robot
     void readStarting() {
         std::string filename{"../Starting.csv"};
         std::ifstream data{filename};
@@ -88,6 +95,7 @@ public:
         } 
     }
 
+    // allow uer input to remote control the robot
     void teleoperation() {
         
         leftMotor->setPosition(INFINITY);
@@ -109,8 +117,9 @@ public:
                 return;
             } else if (key == 65579) { //ket == '+'
                 std::array<double, 2> currentSpeed = getSpeed();
-                std::array<double, 2> newSpeed {currentSpeed.at(0) + (0.1 * MAX_MOTOR_SPEED), 
-                                                currentSpeed.at(1) + (0.1 * MAX_MOTOR_SPEED)};
+                std::array<double, 2> newSpeed {
+                    currentSpeed.at(0) + (0.1 * MAX_MOTOR_SPEED), 
+                    currentSpeed.at(1) + (0.1 * MAX_MOTOR_SPEED)};
                 setSpeed(newSpeed.at(0), newSpeed.at(1));
             }
 
@@ -119,7 +128,12 @@ public:
             rightMotor->setVelocity(motorSpeed.at(1));
         }
     }
-
+    
+    // following series of functions contains command that allows the traversal
+    // of the robot from one specific location to another in auto mode, the 
+    // angle and distance that would allow the robot arrived at the destination
+    // are determoned through counting the time elapsed during the simulation 
+    // time
     void toOrderCommand() {
         if (!timing) {
             std::cout << "Customer 2: I am heading to order counter\n";
@@ -135,14 +149,14 @@ public:
             command = "Stop";
         } else {
             emitter->setChannel(5);
-            std::cout << "Customer 2: Hi Staff, I want to order " << coffee << " \n";
+            std::cout << "Customer 2: Hi Staff, I want to order " << coffee << 
+                " \n";
             std::string message = "2,Customer2," + coffee + ",atOrderTile";
             emitter->send(message.c_str(), message.size() + 1);
             toOrder = false;
             timing = false;
         }
     }
-
     void toStartFromOrderCommand() {
         if (!timing) {
             std::cout << "Customer 2: I am returning to starting point \n";
@@ -227,11 +241,13 @@ public:
         }
     }
 
+    // following a set of pre-determined instruction and orders are sent to the
+    // robot through the communication between it and the staff robot
     void autoMode() {
         while (robot.step(timeStep) != -1) {
-
             if (receiver->getQueueLength() > 0) {
-                auto message = static_cast<std::string>((static_cast<const char *>(receiver->getData())));
+                auto message = static_cast<std::string>(
+                    (static_cast<const char *>(receiver->getData())));
                 receiver->nextPacket();
                 if (message.find("CheckBalance") != std::string::npos) {
                     std::vector<std::string> instructions;
@@ -241,14 +257,15 @@ public:
                         instructions.push_back(instruction);
                     }
                     if (cash >= std::stoi(instructions[0])) {
-                        std::cout << "Customer 2: Hi Staff, I will buy it\n";
+                        std::cout << "Customer 1: Hi Staff, I will buy it\n";
                         cash = cash - std::stoi(instructions[0]);
                         emitter->setChannel(5);
                         std::string message = "Confirm";
                         emitter->send(message.c_str(), message.size() + 1);
                         toStartFromOrder = true;
                     } else if (cash < std::stoi(instructions[0])){
-                        std::cout << "Customer 2: Hi Staff, oops, I can't afford it \n";
+                        std::cout << 
+                            "Customer 1: Hi Staff, oops, I can't afford it\n";
                         emitter->setChannel(5);
                         std::string message = "Cancel";
                         emitter->send(message.c_str(), message.size() + 1);
@@ -258,24 +275,23 @@ public:
                     toPickup = true;
                 } else if (message.find("Error") != std::string::npos) {
                     toStartError = true;
+                } else if (message.find("FinishingStatement") != std::string::npos) {
+                    std::cout << "Customer 2: My current balance is " << cash 
+                        << " dollors\n";
                 }
             }
             if (toOrder) {
                 toOrderCommand();
             }
-
             if (toStartFromOrder) {
                 toStartFromOrderCommand();
             }
-
             if (toPickup) {
                 toPickupCommand();
             }
-
             if (toStartfromPickup) {
                 toStartfromPickupCommand();
             }
-
             if (toStartError) {
                 toStartErrorCommand();
             }
@@ -301,13 +317,16 @@ public:
         }
     }
 
+    // deciding if enter Remote control mode or auto mode
     void cpu() {
         while (robot.step(timeStep) != -1) {
             if (receiver->getQueueLength() > 0) {
-                auto message = static_cast<std::string>((static_cast<const char *>(receiver->getData())));
+                auto message = static_cast<std::string>(
+                    (static_cast<const char *>(receiver->getData())));
                 receiver->nextPacket();
                 if (message == "Remote Control") {
-                    std::cout << "Remote controlling " << static_cast<std::string>(robot.getName()) << "...\n";
+                    std::cout << "Remote controlling "<<static_cast<std::string>
+                        (robot.getName()) << "...\n";
                     teleoperation();
                 } else if (message.find("StartAuto") != std::string::npos) {
                     std::stringstream orderLine{message};
@@ -320,6 +339,8 @@ public:
         }
     }
 };
+
+
 int main(int argc, char **argv) {
 
     auto robot = webots::Robot();
