@@ -1,12 +1,5 @@
-// File:          DR_controller.cpp
-// Date:
-// Description:
-// Author:
-// Modifications:
-
-// You may need to add webots include files such as
-// <webots/DistanceSensor.hpp>, <webots/Motor.hpp>, etc.
-// and/or to add some other includes
+// File:          CR1_controller.cpp
+// Author: Austin Chen
 #include <iostream>
 #include <string>
 #include <fstream>
